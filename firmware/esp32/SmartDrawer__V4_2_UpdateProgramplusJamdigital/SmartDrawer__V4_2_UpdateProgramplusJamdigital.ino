@@ -11,10 +11,16 @@
 #include "led_control.h"
 #include "komunikasi_atmega.h"
 #include "komunikasi_arduinonano.h"  
-
+#include "time.h"             // Library bawaan untuk ambil waktu internet
+#include "jadwalsholat.h"     // Masukkan tab jadwal sholat yang baru dibuat
 
 // Daftar Nama Effect Bawaan WS2812FX
 const char FX_NAMES_JSON[] PROGMEM = "[\"Solid\",\"Blink\",\"Breathe\",\"Color Wipe\",\"Color Wipe Random\",\"Random Color\",\"Single Dynamic\",\"Multi Dynamic\",\"Rainbow\",\"Rainbow Cycle\",\"Scan\",\"Dual Scan\",\"Fade\",\"Theater Chase\",\"Theater Chase Rainbow\",\"Running Lights\",\"Twinkle\",\"Twinkle Random\",\"Twinkle Fade\",\"Twinkle Fade Random\",\"Sparkle\",\"Flash Sparkle\",\"Hyper Sparkle\",\"Strobe\",\"Strobe Rainbow\",\"Multi Strobe\",\"Blink Rainbow\",\"Chase White\",\"Chase Color\",\"Chase Random\",\"Chase Rainbow\",\"Chase Flash\",\"Chase Flash Random\",\"Chase Rainbow White\",\"Colorful\",\"Traffic Light\",\"Color Sweep Random\",\"Running Color\",\"Running Red Blue\",\"Running Random\",\"Larson Scanner\",\"Comet\",\"Fireworks\",\"Fireworks Random\",\"Merry Christmas\",\"Fire Flicker\",\"Fire Flicker Soft\",\"Fire Flicker Intense\",\"Circus Combustus\",\"Halloween\",\"Bicolor Chase\",\"Tricolor Chase\",\"ICU\"]";
+
+// Variabel Timer Jadwal Sholat
+unsigned long lastJadwalUpdate = 0;
+const unsigned long JADWAL_INTERVAL = 24UL * 60UL * 60UL * 1000UL; // 24 Jam
+bool jadwalPertama = true;
 
 AsyncWebServer server(80);
 Preferences    prefs;
@@ -276,6 +282,8 @@ void setupWiFi() {
   Serial.println("AP  IP: http://" + WiFi.softAPIP().toString());
   Serial.println("mDNS  : http://" + String(cfg.devName) + ".local");
   Serial.println("=================================");
+  //SETUP NTP
+  configTime(7 * 3600, 0, "pool.ntp.org", "time.nist.gov");
   }
 
 }
@@ -304,5 +312,6 @@ void loop() {
   ArduinoOTA.handle();
   readUART_ATMEGA(); 
   sendUART_NANO();
+  ambilNTP();
   yield();
 }

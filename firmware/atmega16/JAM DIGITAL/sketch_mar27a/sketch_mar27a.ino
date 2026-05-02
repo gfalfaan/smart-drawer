@@ -56,16 +56,13 @@ const char nama_warna[][16] PROGMEM = {
   "UNGU",
   "WARM ROOM"
 };
-const char nama_sholat[][10] PROGMEM  = {"SUBUH", "DZUHUR", "ASHAR", "MAGHRIB", "ISYA"}; // SUDAH DITAMBAHKAN
+const char nama_sholat[][10] PROGMEM  = {"SUBUH", "DZUHUR", "ASHAR", "MAGHRIB", "ISYA"}; 
 
-unsigned char jadwal_semarang[12][5][2] = {
-    {{4,20},{11,47},{15,12},{18,02},{19,17}}, {{4,28},{11,53},{15,03},{18,05},{19,16}}, 
-    {{4,28},{11,49},{14,56},{17,56},{19,05}}, {{4,24},{11,41},{14,57},{17,42},{18,51}}, 
-    {{4,21},{11,37},{14,58},{17,35},{18,47}}, {{4,25},{11,40},{15,01},{17,36},{18,50}}, 
-    {{4,30},{11,45},{15,06},{17,41},{18,54}}, {{4,26},{11,43},{15,01},{17,41},{18,52}}, 
-    {{4,12},{11,32},{14,44},{17,33},{18,42}}, {{3,56},{11,21},{14,24},{17,25},{18,36}}, 
-    {{3,47},{11,20},{14,34},{17,29},{18,42}}, {{3,54},{11,32},{14,53},{17,43},{18,57}}
+// ===== PERUBAHAN: Menggunakan jadwal dinamis hari ini =====
+unsigned char jadwal_hari_ini[5][2] = {
+  {4,30}, {11,45}, {15,00}, {17,45}, {19,00} // Default awal saat baru menyala
 };
+// ==========================================================
 
 uint32_t Wheel(byte WheelPos) {
   WheelPos = 255 - WheelPos;
@@ -112,6 +109,7 @@ void loop() {
     int len = Serial.readBytesUntil('\n', cmd, sizeof(cmd) - 1);
     cmd[len] = '\0';  // 🔥 WAJIB: nutup string
     cmd[strcspn(cmd, "\r")] = 0;  // 🔥 HAPUS \r
+    
     // ===== SET TIME =====
     if (strncmp(cmd, "SETTIME:", 8) == 0) {
       int h,m,s;
@@ -165,7 +163,24 @@ void loop() {
         update_display();   // 🔥 tampilkan ulang
       }
     }
+    
+    // ===== PERUBAHAN: TERIMA JADWAL SHOLAT DARI ESP32 =====
+    else if (strncmp(cmd, "JADWAL:", 7) == 0) {
+      int s_h, s_m, d_h, d_m, a_h, a_m, m_h, m_m, i_h, i_m;
+      // Parsing string "JADWAL:04:24,11:40,15:00,17:35,18:46"
+      if (sscanf(cmd, "JADWAL:%d:%d,%d:%d,%d:%d,%d:%d,%d:%d", 
+          &s_h, &s_m, &d_h, &d_m, &a_h, &a_m, &m_h, &m_m, &i_h, &i_m) == 10) {
+        
+        jadwal_hari_ini[0][0] = s_h; jadwal_hari_ini[0][1] = s_m; // Subuh
+        jadwal_hari_ini[1][0] = d_h; jadwal_hari_ini[1][1] = d_m; // Dzuhur
+        jadwal_hari_ini[2][0] = a_h; jadwal_hari_ini[2][1] = a_m; // Ashar
+        jadwal_hari_ini[3][0] = m_h; jadwal_hari_ini[3][1] = m_m; // Maghrib
+        jadwal_hari_ini[4][0] = i_h; jadwal_hari_ini[4][1] = i_m; // Isya
+      }
+    }
+    // ========================================================
   }
+  
   // ===== KIRIM DATA KE ESP32 =====
   static unsigned long lastSend = 0;
   if (millis() - lastSend > 1000) {
@@ -188,7 +203,6 @@ void loop() {
     if (alm_m < 10) Serial.print('0');
     Serial.println(alm_m);
 
-      // 🔥 TAMBAHAN DATE (INI YANG KAMU BUTUH)
     Serial.print(F("DATE:"));
     if (tgl < 10) Serial.print('0');
     Serial.print(tgl);
@@ -202,6 +216,7 @@ void loop() {
     Serial.print(F("ALARMON:"));
     Serial.println(alm_on);
   }
+  
   if (menu_pos == 0 && menu_aktif == 0) {
     if (detik != detik_lama) { detik_lama = detik; update_display(); }
   }
@@ -295,10 +310,10 @@ void cek_alarm_dan_sholat() {
     return;
   }
 
-  // alarm sholat
+  // ===== PERUBAHAN: Cek terhadap jadwal hari ini =====
   for (int i = 0; i < 5; i++) {
-    if (jam == jadwal_semarang[bln - 1][i][0] &&
-        menit == jadwal_semarang[bln - 1][i][1] &&
+    if (jam == jadwal_hari_ini[i][0] &&
+        menit == jadwal_hari_ini[i][1] &&
         detik == 0 &&
         last_event_min != menit) {
 
@@ -318,6 +333,7 @@ void cek_alarm_dan_sholat() {
       return;
     }
   }
+  // ===================================================
 }
 
 void update_display() {
@@ -346,12 +362,14 @@ void update_display() {
       if (alm_on) { lcd.print(F(" A")); tampil_angka_lcd(alm_h); lcd.print(F(":")); tampil_angka_lcd(alm_m); }
     } else {
       int s_idx = (display_timer - 122) / 2;
+      // ===== PERUBAHAN: Menampilkan jadwal hari ini ke LCD =====
       if (s_idx >= 0 && s_idx < 5 && display_timer % 2 == 0) {
         lcd.clear(); lcd.setCursor(0, 0); lcd.print(F("JADWAL SHOLAT"));
         lcd.setCursor(0, 1);strcpy_P(buf,nama_sholat[s_idx]);
         lcd.print(buf);lcd.print(F(" "));
-        tampil_angka_lcd(jadwal_semarang[bln - 1][s_idx][0]); lcd.print(F(":")); tampil_angka_lcd(jadwal_semarang[bln - 1][s_idx][1]);
+        tampil_angka_lcd(jadwal_hari_ini[s_idx][0]); lcd.print(F(":")); tampil_angka_lcd(jadwal_hari_ini[s_idx][1]);
       }
+      // =========================================================
     }
   } 
   else if (menu_aktif == 0) {
@@ -472,7 +490,6 @@ void beep() {
 
 void bunyi_alarm_solat() {
   int repeat = 6 + nada_alarm * 2;
-
   for (int i = 0; i < repeat; i++) {
     digitalWrite(BUZZER, HIGH);
     delay(80 + (nada_alarm * 20));
@@ -480,7 +497,6 @@ void bunyi_alarm_solat() {
     delay(60);
   }
 }
-
 void bunyi_alarm_event() {
   // bunyi terus sampai salah satu tombol ditekan
   while (digitalRead(BTN_SET) == HIGH &&
@@ -511,7 +527,7 @@ void bunyi_alarm_event() {
       delay(200);
     }
   }
-
   // pastikan buzzer mati setelah tombol ditekan
   digitalWrite(BUZZER, LOW);
-}
+  }
+
