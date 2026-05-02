@@ -26,3 +26,5 @@ Smart Drawer adalah sistem penyimpanan komponen yang dilengkapi web interface da
 * `firmware/arduinonano` → display panel
 ## Catatan
 Project ini dibuat untuk membantu menyimpan dan mencari komponen elektronik agar lebih rapi dan efisien.
+## TAMBAHANB 
+PANEL P10 include jadwal waktu solat ambil Api dari My Quran 
